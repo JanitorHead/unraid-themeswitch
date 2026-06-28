@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "themeswitch">
   <!ENTITY author    "JanitorHead">
-  <!ENTITY version   "2026.06.29c">
+  <!ENTITY version   "2026.06.29d">
   <!ENTITY github    "JanitorHead/unraid-themeswitch">
   <!ENTITY plugin    "/boot/config/plugins/&name;">
   <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
@@ -18,7 +18,7 @@
         min="6.12.0">
 
   <CHANGES>
-###2026.06.29c
+###2026.06.29d
 - Initial release.
   </CHANGES>
 
@@ -123,27 +123,32 @@ Icon="adjust"
     return prefersDark() ? pair.dark : pair.light; // auto
   }
 
-  // Stock dark themes give the header a LIGHT background with DARK content. To get
-  // a full dark mode we re-scope every token the header colours its content from,
-  // plus the inherited `color`, to light values — but ONLY within #header, so no
-  // "inverse" element elsewhere on the page is touched. Tokens used by the header:
-  //   --header-background-color : the bar background
-  //   --inverse-text-color      : #header base colour -> server name, user area
-  //   --header-text-color       : toolbar buttons (.nav-item a)
-  //   --header-text-primary     : partner logo svg fill
-  // Custom properties + `color` both inherit through shadow DOM, so this also
-  // reaches the web components (os-version, user profile, bell, hamburger).
-  var DARK_HEADER_CSS =
+  // CSS injected only while a dark theme is active. Two fixes Unraid's stock dark
+  // themes don't cover:
+  //
+  // 1. Header — stock dark themes give it a LIGHT background with DARK content. We
+  //    re-scope every token the header colours its content from, plus the inherited
+  //    `color`, to light values, but ONLY within #header so no "inverse" element
+  //    elsewhere is touched. Tokens: --header-background-color (the bar),
+  //    --inverse-text-color (server name / user area), --header-text-color (toolbar
+  //    buttons), --header-text-primary (partner logo). Custom properties + `color`
+  //    inherit through shadow DOM, so this also reaches the header web components.
+  //
+  // 2. Command-execution output (docker run, plugin installs, etc.) — Unraid prints
+  //    it into .CMD/.logLine/#logBody elements that stay dark on the dark page. Force
+  //    them to the theme text colour so the output stays readable.
+  var DARK_MODE_CSS =
     '#header{' +
       '--header-background-color:var(--mild-background-color);' +
       '--inverse-text-color:var(--text-color);' +
       '--header-text-color:var(--text-color);' +
       '--header-text-primary:var(--text-color);' +
       'color:var(--text-color);' +
-    '}';
+    '}' +
+    '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}';
 
   // Our own <style> element, created once, toggled by content.
-  function darkHeaderStyle() {
+  function darkModeStyle() {
     var el = document.getElementById('themeswitch-style');
     if (!el) {
       el = document.createElement('style');
@@ -167,7 +172,7 @@ Icon="adjust"
     html.classList.add('Theme--' + theme);
 
     var isDark = (theme === 'black' || theme === 'gray');
-    darkHeaderStyle().textContent = isDark ? DARK_HEADER_CSS : '';
+    darkModeStyle().textContent = isDark ? DARK_MODE_CSS : '';
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
