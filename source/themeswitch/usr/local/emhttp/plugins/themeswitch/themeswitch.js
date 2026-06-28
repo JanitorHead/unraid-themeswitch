@@ -87,6 +87,12 @@
       '--header-text-secondary:var(--text-color);' +
       'color:var(--text-color);' +
     '}' +
+    // The Connect web components (server name, notification bell, dropdown/hamburger)
+    // colour themselves with the unraid-ui Tailwind utility class .text-header-text-primary
+    // and their icons are fill="currentColor". Forcing `color` on that class lights up
+    // both the text and the icons; the CSS-variable overrides above don't reach them
+    // because the utility expects a different value format.
+    '#header .text-header-text-primary{color:var(--text-color)!important;}' +
     '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}';
 
   // Our own <style> element, created once, toggled by content.
