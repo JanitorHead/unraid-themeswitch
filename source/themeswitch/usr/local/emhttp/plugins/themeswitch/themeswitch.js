@@ -61,7 +61,9 @@
     return prefersDark() ? pair.dark : pair.light; // auto
   }
 
-  // Apply a theme: repoint the <link> and swap the <html> colour class.
+  // Apply a theme: repoint the <link>, swap the <html> colour class, and force a
+  // dark header when dark (stock Unraid keeps the header the inverse of the body,
+  // i.e. light in the black/gray themes — we override that for a full dark mode).
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
@@ -72,6 +74,18 @@
     var html = document.documentElement;
     THEMES.forEach(function (t) { html.classList.remove('Theme--' + t); });
     html.classList.add('Theme--' + theme);
+
+    // The header bar reads --header-background-color / --header-text-color. In the
+    // dark themes these default to a LIGHT header; override them (referencing the
+    // theme's own dark tokens) so the header follows the body. Remove in light so
+    // the native dark-on-light header returns.
+    if (theme === 'black' || theme === 'gray') {
+      html.style.setProperty('--header-background-color', 'var(--mild-background-color)');
+      html.style.setProperty('--header-text-color', 'var(--text-color)');
+    } else {
+      html.style.removeProperty('--header-background-color');
+      html.style.removeProperty('--header-text-color');
+    }
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
