@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "themeswitch">
   <!ENTITY author    "JanitorHead">
-  <!ENTITY version   "2026.06.29a">
+  <!ENTITY version   "2026.06.29b">
   <!ENTITY github    "JanitorHead/unraid-themeswitch">
   <!ENTITY plugin    "/boot/config/plugins/&name;">
   <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
@@ -18,7 +18,7 @@
         min="6.12.0">
 
   <CHANGES>
-###2026.06.29a
+###2026.06.29b
 - Initial release.
   </CHANGES>
 
@@ -54,7 +54,7 @@ Icon="adjust"
  * anchor calls (onclick="ThemeSwitch();return false;").
  */
 ?>
-<script src="/plugins/themeswitch/themeswitch.js"></script>
+<script src="<?php autov('/plugins/themeswitch/themeswitch.js') ?>"></script>
 ]]></INLINE>
   </FILE>
 

@@ -11,4 +11,4 @@ Icon="adjust"
  * anchor calls (onclick="ThemeSwitch();return false;").
  */
 ?>
-<script src="/plugins/themeswitch/themeswitch.js"></script>
+<script src="<?php autov('/plugins/themeswitch/themeswitch.js') ?>"></script>
