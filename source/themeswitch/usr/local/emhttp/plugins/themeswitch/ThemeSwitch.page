@@ -1,0 +1,14 @@
+Menu="Buttons:1"
+Title="Theme"
+Icon="adjust"
+---
+<?PHP
+/* Theme Switch — header toolbar light/dark toggle.
+ * Copyright (c) 2026 JanitorHead. Licensed under the MIT License.
+ *
+ * Rendered into <head> on every Unraid page (Menu="Buttons"). It loads the
+ * global switcher script, which defines the ThemeSwitch() function the toolbar
+ * anchor calls (onclick="ThemeSwitch();return false;").
+ */
+?>
+<script src="/plugins/themeswitch/themeswitch.js"></script>
