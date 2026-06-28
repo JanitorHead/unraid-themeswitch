@@ -69,8 +69,10 @@
   //    `color`, to light values, but ONLY within #header so no "inverse" element
   //    elsewhere is touched. Tokens: --header-background-color (the bar),
   //    --inverse-text-color (server name / user area), --header-text-color (toolbar
-  //    buttons), --header-text-primary (partner logo). Custom properties + `color`
-  //    inherit through shadow DOM, so this also reaches the header web components.
+  //    buttons), --customer-header-text-color (canonical header text token the
+  //    Connect components read), --header-text-primary/secondary (logos / icons).
+  //    Custom properties + `color` inherit through shadow DOM, so these also reach
+  //    the header web components (os-version, user profile, bell, hamburger).
   //
   // 2. Command-execution output (docker run, plugin installs, etc.) — Unraid prints
   //    it into .CMD/.logLine/#logBody elements that stay dark on the dark page. Force
@@ -80,7 +82,9 @@
       '--header-background-color:var(--mild-background-color);' +
       '--inverse-text-color:var(--text-color);' +
       '--header-text-color:var(--text-color);' +
+      '--customer-header-text-color:var(--text-color);' +
       '--header-text-primary:var(--text-color);' +
+      '--header-text-secondary:var(--text-color);' +
       'color:var(--text-color);' +
     '}' +
     '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}';
