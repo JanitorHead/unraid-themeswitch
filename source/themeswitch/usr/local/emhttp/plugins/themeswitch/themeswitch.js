@@ -61,9 +61,38 @@
     return prefersDark() ? pair.dark : pair.light; // auto
   }
 
+  // Stock dark themes give the header a LIGHT background with DARK content. To get
+  // a full dark mode we re-scope every token the header colours its content from,
+  // plus the inherited `color`, to light values — but ONLY within #header, so no
+  // "inverse" element elsewhere on the page is touched. Tokens used by the header:
+  //   --header-background-color : the bar background
+  //   --inverse-text-color      : #header base colour -> server name, user area
+  //   --header-text-color       : toolbar buttons (.nav-item a)
+  //   --header-text-primary     : partner logo svg fill
+  // Custom properties + `color` both inherit through shadow DOM, so this also
+  // reaches the web components (os-version, user profile, bell, hamburger).
+  var DARK_HEADER_CSS =
+    '#header{' +
+      '--header-background-color:var(--mild-background-color);' +
+      '--inverse-text-color:var(--text-color);' +
+      '--header-text-color:var(--text-color);' +
+      '--header-text-primary:var(--text-color);' +
+      'color:var(--text-color);' +
+    '}';
+
+  // Our own <style> element, created once, toggled by content.
+  function darkHeaderStyle() {
+    var el = document.getElementById('themeswitch-style');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'themeswitch-style';
+      (document.head || document.documentElement).appendChild(el);
+    }
+    return el;
+  }
+
   // Apply a theme: repoint the <link>, swap the <html> colour class, and force a
-  // dark header when dark (stock Unraid keeps the header the inverse of the body,
-  // i.e. light in the black/gray themes — we override that for a full dark mode).
+  // dark header when the effective theme is dark (cleared in light -> native header).
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
@@ -75,17 +104,8 @@
     THEMES.forEach(function (t) { html.classList.remove('Theme--' + t); });
     html.classList.add('Theme--' + theme);
 
-    // The header bar reads --header-background-color / --header-text-color. In the
-    // dark themes these default to a LIGHT header; override them (referencing the
-    // theme's own dark tokens) so the header follows the body. Remove in light so
-    // the native dark-on-light header returns.
-    if (theme === 'black' || theme === 'gray') {
-      html.style.setProperty('--header-background-color', 'var(--mild-background-color)');
-      html.style.setProperty('--header-text-color', 'var(--text-color)');
-    } else {
-      html.style.removeProperty('--header-background-color');
-      html.style.removeProperty('--header-text-color');
-    }
+    var isDark = (theme === 'black' || theme === 'gray');
+    darkHeaderStyle().textContent = isDark ? DARK_HEADER_CSS : '';
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
