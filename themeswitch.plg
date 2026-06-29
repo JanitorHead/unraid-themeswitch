@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "themeswitch">
   <!ENTITY author    "JanitorHead">
-  <!ENTITY version   "2026.06.29i">
+  <!ENTITY version   "2026.06.29j">
   <!ENTITY github    "JanitorHead/unraid-themeswitch">
   <!ENTITY plugin    "/boot/config/plugins/&name;">
   <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
@@ -18,7 +18,7 @@
         min="6.12.0">
 
   <CHANGES>
-###2026.06.29i
+###2026.06.29j
 - Initial release.
   </CHANGES>
 
@@ -133,8 +133,8 @@ Icon="adjust"
   //    dropdown/hamburger. It's a Tailwind-v4 app whose .text-header-text-primary reads
   //    var(--color-header-text-primary) (icons are fill="currentColor"). It mounts
   //    OUTSIDE #header, so these rules are GLOBAL: override the token on .unapi and
-  //    force the utility colour directly. (Also tinted from JS — see tintConnect — to
-  //    reach .unapi hosts inside open shadow roots that CSS selectors can't.)
+  //    force the utility colour directly. NOTE: best-effort only — when Connect renders
+  //    inside a CLOSED shadow root these don't reach it and those icons stay dark.
   // 3. Command-execution output (docker run, plugin installs) — Unraid prints it into
   //    .CMD/.logLine/#logBody, which stay dark on the dark page. Force them light.
   var DARK_MODE_CSS =
@@ -160,31 +160,6 @@ Icon="adjust"
     return el;
   }
 
-  // Walk the document and all OPEN shadow roots, calling fn for every .unapi element
-  // (the Unraid Connect app container). CSS selectors stop at shadow boundaries; this
-  // doesn't, so we can reach Connect even when it mounts inside a shadow root.
-  function eachUnapi(fn) {
-    function walk(root) {
-      var nodes;
-      try { nodes = root.querySelectorAll('*'); } catch (e) { return; }
-      for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].classList && nodes[i].classList.contains('unapi')) fn(nodes[i]);
-        if (nodes[i].shadowRoot) walk(nodes[i].shadowRoot);
-      }
-    }
-    walk(document);
-  }
-
-  // Set/clear Connect's header text-colour token as an inline custom property on each
-  // .unapi host. Inline beats its stylesheet, and the property inherits down into the
-  // shadow children, lighting up the server name, bell and dropdown in dark mode.
-  function tintConnect(isDark) {
-    eachUnapi(function (el) {
-      if (isDark) el.style.setProperty('--color-header-text-primary', 'var(--text-color)');
-      else el.style.removeProperty('--color-header-text-primary');
-    });
-  }
-
   // Apply a theme: repoint the <link>, swap the <html> colour class, and force a
   // dark header when the effective theme is dark (cleared in light -> native header).
   function applyTheme(theme) {
@@ -200,11 +175,6 @@ Icon="adjust"
 
     var isDark = (theme === 'black' || theme === 'gray');
     darkModeStyle().textContent = isDark ? DARK_MODE_CSS : '';
-
-    // Connect mounts .unapi asynchronously, so tint now and re-tint a few times to
-    // catch a late mount (the inline token then persists).
-    tintConnect(isDark);
-    [300, 1000, 2500].forEach(function (ms) { setTimeout(function () { tintConnect(isDark); }, ms); });
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
