@@ -125,6 +125,13 @@
 
     var isDark = (theme === 'black' || theme === 'gray');
     darkModeStyle().textContent = isDark ? DARK_MODE_CSS : '';
+
+    // The Unraid Connect header app (.unapi) is a self-contained shadcn/Tailwind-v4
+    // island that themes itself via the standard `.dark` class on the root. Toggling
+    // it flips Connect's own tokens (--foreground, --color-header-text-primary, ...)
+    // to their dark values, recolouring the server name, bell and dropdown the way
+    // Connect intends — which external CSS can't do (its tokens live in shadow DOM).
+    html.classList.toggle('dark', isDark);
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
