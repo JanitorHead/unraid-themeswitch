@@ -61,42 +61,30 @@
     return prefersDark() ? pair.dark : pair.light; // auto
   }
 
-  // CSS injected only while a dark theme is active. Two fixes Unraid's stock dark
+  // CSS injected only while a dark theme is active. Three fixes Unraid's stock dark
   // themes don't cover:
   //
-  // 1. Header — stock dark themes give it a LIGHT background with DARK content. We
-  //    re-scope every token the header colours its content from, plus the inherited
-  //    `color`, to light values, but ONLY within #header so no "inverse" element
-  //    elsewhere is touched. Tokens: --header-background-color (the bar),
-  //    --inverse-text-color (server name / user area), --header-text-color (toolbar
-  //    buttons), --customer-header-text-color (canonical header text token the
-  //    Connect components read), --header-text-primary/secondary (logos / icons).
-  //    Custom properties + `color` inherit through shadow DOM, so these also reach
-  //    the header web components (os-version, user profile, bell, hamburger).
-  //
-  // 2. Command-execution output (docker run, plugin installs, etc.) — Unraid prints
-  //    it into .CMD/.logLine/#logBody elements that stay dark on the dark page. Force
-  //    them to the theme text colour so the output stays readable.
+  // 1. Header bar — stock dark themes give it a LIGHT background with DARK content.
+  //    Re-scope the tokens the header colours its dynamix-side content from, plus the
+  //    inherited `color`, to light values within #header.
+  // 2. Unraid Connect header island (.unapi) — the server name, notification bell and
+  //    dropdown/hamburger. It's a Tailwind-v4 app whose .text-header-text-primary reads
+  //    var(--color-header-text-primary) (icons are fill="currentColor"). It mounts
+  //    OUTSIDE #header, so these rules are GLOBAL: override the token on .unapi and
+  //    force the utility colour directly. (Also tinted from JS — see tintConnect — to
+  //    reach .unapi hosts inside open shadow roots that CSS selectors can't.)
+  // 3. Command-execution output (docker run, plugin installs) — Unraid prints it into
+  //    .CMD/.logLine/#logBody, which stay dark on the dark page. Force them light.
   var DARK_MODE_CSS =
     '#header{' +
       '--header-background-color:var(--mild-background-color);' +
       '--inverse-text-color:var(--text-color);' +
       '--header-text-color:var(--text-color);' +
       '--customer-header-text-color:var(--text-color);' +
-      '--header-text-primary:var(--text-color);' +
-      '--header-text-secondary:var(--text-color);' +
-      // The Connect web components (server name, bell, dropdown/hamburger) are built
-      // with unraid-ui / Tailwind v4, which namespaces theme colours under --color-*.
-      // Their utility .text-header-text-primary reads var(--color-header-text-primary),
-      // and their icons are fill="currentColor". CSS custom properties inherit through
-      // shadow DOM, so setting this token on #header recolours them even though a plain
-      // class rule can't reach inside the components' shadow roots.
-      '--color-header-text-primary:var(--text-color);' +
-      '--color-header-text-secondary:var(--text-color);' +
       'color:var(--text-color);' +
     '}' +
-    // Belt-and-suspenders for any header content that lives in the light DOM.
-    '#header .text-header-text-primary{color:var(--text-color)!important;}' +
+    '.unapi{--color-header-text-primary:var(--text-color)!important;}' +
+    '.text-header-text-primary{color:var(--text-color)!important;}' +
     '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}';
 
   // Our own <style> element, created once, toggled by content.
@@ -108,6 +96,31 @@
       (document.head || document.documentElement).appendChild(el);
     }
     return el;
+  }
+
+  // Walk the document and all OPEN shadow roots, calling fn for every .unapi element
+  // (the Unraid Connect app container). CSS selectors stop at shadow boundaries; this
+  // doesn't, so we can reach Connect even when it mounts inside a shadow root.
+  function eachUnapi(fn) {
+    function walk(root) {
+      var nodes;
+      try { nodes = root.querySelectorAll('*'); } catch (e) { return; }
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].classList && nodes[i].classList.contains('unapi')) fn(nodes[i]);
+        if (nodes[i].shadowRoot) walk(nodes[i].shadowRoot);
+      }
+    }
+    walk(document);
+  }
+
+  // Set/clear Connect's header text-colour token as an inline custom property on each
+  // .unapi host. Inline beats its stylesheet, and the property inherits down into the
+  // shadow children, lighting up the server name, bell and dropdown in dark mode.
+  function tintConnect(isDark) {
+    eachUnapi(function (el) {
+      if (isDark) el.style.setProperty('--color-header-text-primary', 'var(--text-color)');
+      else el.style.removeProperty('--color-header-text-primary');
+    });
   }
 
   // Apply a theme: repoint the <link>, swap the <html> colour class, and force a
@@ -126,12 +139,10 @@
     var isDark = (theme === 'black' || theme === 'gray');
     darkModeStyle().textContent = isDark ? DARK_MODE_CSS : '';
 
-    // The Unraid Connect header app (.unapi) is a self-contained shadcn/Tailwind-v4
-    // island that themes itself via the standard `.dark` class on the root. Toggling
-    // it flips Connect's own tokens (--foreground, --color-header-text-primary, ...)
-    // to their dark values, recolouring the server name, bell and dropdown the way
-    // Connect intends — which external CSS can't do (its tokens live in shadow DOM).
-    html.classList.toggle('dark', isDark);
+    // Connect mounts .unapi asynchronously, so tint now and re-tint a few times to
+    // catch a late mount (the inline token then persists).
+    tintConnect(isDark);
+    [300, 1000, 2500].forEach(function (ms) { setTimeout(function () { tintConnect(isDark); }, ms); });
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
