@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "themeswitch">
   <!ENTITY author    "JanitorHead">
-  <!ENTITY version   "2026.06.29j">
+  <!ENTITY version   "2026.06.29k">
   <!ENTITY github    "JanitorHead/unraid-themeswitch">
   <!ENTITY plugin    "/boot/config/plugins/&name;">
   <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
@@ -18,8 +18,11 @@
         min="6.12.0">
 
   <CHANGES>
-###2026.06.29j
-- Initial release.
+###2026.06.29k
+- One-click light/dark theme toggle (sun/moon) in the Unraid header toolbar.
+- Three modes: Auto (follows your OS colour scheme live), Light, Dark.
+- Instant client-side switch: no page reload, no server settings changed, per browser.
+- Forces a fully dark header and keeps command-execution output readable in dark mode.
   </CHANGES>
 
   <FILE Run="/usr/bin/php">
@@ -92,7 +95,9 @@ Icon="adjust"
   };
 
   function themeLink() {
-    return document.querySelector('link[href*="/styles/themes/"]');
+    // Constrain to the active stylesheet so a future preload/icon link to the same
+    // path can't be picked up instead of the real theme <link>.
+    return document.querySelector('link[rel~="stylesheet"][href*="/styles/themes/"]');
   }
 
   // Parse the active theme name (white|azure|black|gray) from the <link href>,
@@ -166,6 +171,8 @@ Icon="adjust"
     var link = themeLink();
     if (!link) return;
     var href = link.getAttribute('href');
+    // Swap only the theme token; the original ?v=<mtime> cache-buster is reused (an
+    // opaque key, harmless) and self-heals on the next full page load.
     var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
     if (next !== href) link.setAttribute('href', next);
 
@@ -203,11 +210,13 @@ Icon="adjust"
   }
 
   // --- Run immediately (head): apply before the body paints to limit flashing.
-  var initialPair = refresh();
+  refresh();
 
   // The toolbar anchor calls this by filename contract: onclick="ThemeSwitch()".
-  // Cycle auto -> light -> dark -> auto.
+  // Cycle auto -> light -> dark -> auto. No-op on an unrecognised layout so the glyph
+  // never cycles without actually restyling the page.
   window.ThemeSwitch = function () {
+    if (!currentTheme(themeLink())) return;
     var next = { auto: 'light', light: 'dark', dark: 'auto' }[getMode()] || 'auto';
     setMode(next);
     refresh();
@@ -227,13 +236,16 @@ Icon="adjust"
     if (e.key === STORAGE_KEY) { refresh(); updateButton(getMode()); }
   });
 
-  // Button is in <body>; set its glyph/label once the DOM is ready.
-  if (initialPair) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () { updateButton(getMode()); });
-    } else {
-      updateButton(getMode());
-    }
+  // The toolbar button lives in <body>. Once the DOM is ready, re-apply (covers the
+  // case where the theme <link> wasn't parsed yet at head time) and initialise the
+  // button; updateButton only runs when the layout was recognised.
+  function initButton() {
+    if (refresh()) updateButton(getMode());
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initButton);
+  } else {
+    initButton();
   }
 })();
 ]]></INLINE>

@@ -30,7 +30,9 @@
   };
 
   function themeLink() {
-    return document.querySelector('link[href*="/styles/themes/"]');
+    // Constrain to the active stylesheet so a future preload/icon link to the same
+    // path can't be picked up instead of the real theme <link>.
+    return document.querySelector('link[rel~="stylesheet"][href*="/styles/themes/"]');
   }
 
   // Parse the active theme name (white|azure|black|gray) from the <link href>,
@@ -104,6 +106,8 @@
     var link = themeLink();
     if (!link) return;
     var href = link.getAttribute('href');
+    // Swap only the theme token; the original ?v=<mtime> cache-buster is reused (an
+    // opaque key, harmless) and self-heals on the next full page load.
     var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
     if (next !== href) link.setAttribute('href', next);
 
@@ -141,11 +145,13 @@
   }
 
   // --- Run immediately (head): apply before the body paints to limit flashing.
-  var initialPair = refresh();
+  refresh();
 
   // The toolbar anchor calls this by filename contract: onclick="ThemeSwitch()".
-  // Cycle auto -> light -> dark -> auto.
+  // Cycle auto -> light -> dark -> auto. No-op on an unrecognised layout so the glyph
+  // never cycles without actually restyling the page.
   window.ThemeSwitch = function () {
+    if (!currentTheme(themeLink())) return;
     var next = { auto: 'light', light: 'dark', dark: 'auto' }[getMode()] || 'auto';
     setMode(next);
     refresh();
@@ -165,12 +171,15 @@
     if (e.key === STORAGE_KEY) { refresh(); updateButton(getMode()); }
   });
 
-  // Button is in <body>; set its glyph/label once the DOM is ready.
-  if (initialPair) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () { updateButton(getMode()); });
-    } else {
-      updateButton(getMode());
-    }
+  // The toolbar button lives in <body>. Once the DOM is ready, re-apply (covers the
+  // case where the theme <link> wasn't parsed yet at head time) and initialise the
+  // button; updateButton only runs when the layout was recognised.
+  function initButton() {
+    if (refresh()) updateButton(getMode());
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initButton);
+  } else {
+    initButton();
   }
 })();

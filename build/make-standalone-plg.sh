@@ -60,7 +60,10 @@ emit_file() {
 
   <CHANGES>
 ###$VER
-- Initial release.
+- One-click light/dark theme toggle (sun/moon) in the Unraid header toolbar.
+- Three modes: Auto (follows your OS colour scheme live), Light, Dark.
+- Instant client-side switch: no page reload, no server settings changed, per browser.
+- Forces a fully dark header and keeps command-execution output readable in dark mode.
   </CHANGES>
 
   <FILE Run="/usr/bin/php">
