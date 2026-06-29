@@ -85,13 +85,17 @@
       '--customer-header-text-color:var(--text-color);' +
       '--header-text-primary:var(--text-color);' +
       '--header-text-secondary:var(--text-color);' +
+      // The Connect web components (server name, bell, dropdown/hamburger) are built
+      // with unraid-ui / Tailwind v4, which namespaces theme colours under --color-*.
+      // Their utility .text-header-text-primary reads var(--color-header-text-primary),
+      // and their icons are fill="currentColor". CSS custom properties inherit through
+      // shadow DOM, so setting this token on #header recolours them even though a plain
+      // class rule can't reach inside the components' shadow roots.
+      '--color-header-text-primary:var(--text-color);' +
+      '--color-header-text-secondary:var(--text-color);' +
       'color:var(--text-color);' +
     '}' +
-    // The Connect web components (server name, notification bell, dropdown/hamburger)
-    // colour themselves with the unraid-ui Tailwind utility class .text-header-text-primary
-    // and their icons are fill="currentColor". Forcing `color` on that class lights up
-    // both the text and the icons; the CSS-variable overrides above don't reach them
-    // because the utility expects a different value format.
+    // Belt-and-suspenders for any header content that lives in the light DOM.
     '#header .text-header-text-primary{color:var(--text-color)!important;}' +
     '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}';
 
