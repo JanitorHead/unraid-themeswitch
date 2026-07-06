@@ -1,0 +1,13 @@
+archive/
+*.txz
+*.txz.md5
+.DS_Store
+Thumbs.db
+
+# local-only build/deploy guide for Claude (not published)
+CLAUDE.md
+
+# stray scratch/diff plg files
+p[0-9]*.plg
+gh*.plg
+api.plg

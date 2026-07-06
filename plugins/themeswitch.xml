@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Plugin>
+  <Name>Theme Switch</Name>
+  <Overview>A simple one-click light/dark theme switch for the Unraid webGUI. It adds a sun/moon button to the header toolbar (on every page) that cycles Auto -&gt; Light -&gt; Dark. In Auto it follows your browser/OS colour scheme (prefers-color-scheme) and flips live when the OS does. The switch is instant and per-client: it happens in your browser with no page reload and without changing any server setting, so different clients and operating systems each get the right look without fighting over Unraid's single shared theme. Simpler than Dynamix Day/Night - no schedules, just a button and your OS. Fully supported on Unraid 7.x; installs harmlessly on older versions (the button simply does nothing if the theme layout isn't recognised).</Overview>
+  <PluginURL>https://raw.githubusercontent.com/JanitorHead/unraid-themeswitch/master/themeswitch.plg</PluginURL>
+  <PluginAuthor>JanitorHead</PluginAuthor>
+  <Support>https://github.com/JanitorHead/unraid-themeswitch</Support>
+  <Project>https://github.com/JanitorHead/unraid-themeswitch</Project>
+  <ReadMe>https://raw.githubusercontent.com/JanitorHead/unraid-themeswitch/master/README.md</ReadMe>
+  <Category>Tools:System</Category>
+  <Icon>https://raw.githubusercontent.com/JanitorHead/unraid-themeswitch/master/images/themeswitch.png</Icon>
+  <License>MIT</License>
+  <MinVer>6.12</MinVer>
+</Plugin>

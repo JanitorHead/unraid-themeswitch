@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommunityApplications>
+  <Profile>A simple one-click light/dark theme switch for the Unraid webGUI header that can follow your OS colour scheme automatically.</Profile>
+  <Icon>https://raw.githubusercontent.com/JanitorHead/unraid-themeswitch/master/images/themeswitch.png</Icon>
+  <WebPage>https://github.com/JanitorHead/unraid-themeswitch</WebPage>
+  <Forum>https://github.com/JanitorHead/unraid-themeswitch</Forum>
+</CommunityApplications>
