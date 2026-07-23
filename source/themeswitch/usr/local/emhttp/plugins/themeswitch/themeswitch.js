@@ -77,6 +77,13 @@
   //    inside a CLOSED shadow root these don't reach it and those icons stay dark.
   // 3. Command-execution output (docker run, plugin installs) — Unraid prints it into
   //    .CMD/.logLine/#logBody, which stay dark on the dark page. Force them light.
+  // 4. Top-nav menu strip (#menu > .nav-tile) — in the white/black family the stock
+  //    black theme leaves this bar light (#f2f2f2), with dark labels and a dark active-
+  //    tab underline (both read var(--header-text-color)). It mounts OUTSIDE #header so
+  //    the #header token re-scope never reaches it; darken the strip and re-scope the
+  //    same header-text token here so the labels AND the .nav-item.active::after
+  //    underline flip light together. Harmless in the azure/gray sidebar family (no
+  //    #menu strip).
   var DARK_MODE_CSS =
     '#header{' +
       '--header-background-color:var(--mild-background-color);' +
@@ -87,7 +94,8 @@
     '}' +
     '.unapi{--color-header-text-primary:var(--text-color)!important;}' +
     '.text-header-text-primary{color:var(--text-color)!important;}' +
-    '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}';
+    '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}' +
+    '#menu,.nav-tile{background:var(--mild-background-color)!important;--header-text-color:var(--text-color)!important;}';
 
   // Our own <style> element, created once, toggled by content.
   function darkModeStyle() {
