@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "themeswitch">
   <!ENTITY author    "JanitorHead">
-  <!ENTITY version   "2026.07.23">
+  <!ENTITY version   "2026.07.23a">
   <!ENTITY github    "JanitorHead/unraid-themeswitch">
   <!ENTITY plugin    "/boot/config/plugins/&name;">
   <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
@@ -18,7 +18,7 @@
         min="6.12.0">
 
   <CHANGES>
-###2026.07.23
+###2026.07.23a
 - One-click light/dark theme toggle (sun/moon) in the Unraid header toolbar.
 - Three modes: Auto (follows your OS colour scheme live), Light, Dark.
 - Instant client-side switch: no page reload, no server settings changed, per browser.
@@ -128,27 +128,19 @@ Icon="adjust"
     return prefersDark() ? pair.dark : pair.light; // auto
   }
 
-  // CSS injected only while a dark theme is active. Three fixes Unraid's stock dark
-  // themes don't cover:
+  // CSS injected only while a dark theme is active. Fixes Unraid's stock dark themes
+  // don't cover:
   //
   // 1. Header bar — stock dark themes give it a LIGHT background with DARK content.
   //    Re-scope the tokens the header colours its dynamix-side content from, plus the
   //    inherited `color`, to light values within #header.
-  // 2. Unraid Connect header island (.unapi) — the server name, notification bell and
-  //    dropdown/hamburger. It's a Tailwind-v4 app whose .text-header-text-primary reads
-  //    var(--color-header-text-primary) (icons are fill="currentColor"). It mounts
-  //    OUTSIDE #header, so these rules are GLOBAL: override the token on .unapi and
-  //    force the utility colour directly. NOTE: best-effort only — when Connect renders
-  //    inside a CLOSED shadow root these don't reach it and those icons stay dark.
-  // 3. Command-execution output (docker run, plugin installs) — Unraid prints it into
+  // 2. Command-execution output (docker run, plugin installs) — Unraid prints it into
   //    .CMD/.logLine/#logBody, which stay dark on the dark page. Force them light.
-  // 4. Top-nav menu strip (#menu > .nav-tile) — in the white/black family the stock
-  //    black theme leaves this bar light (#f2f2f2), with dark labels and a dark active-
-  //    tab underline (both read var(--header-text-color)). It mounts OUTSIDE #header so
-  //    the #header token re-scope never reaches it; darken the strip and re-scope the
-  //    same header-text token here so the labels AND the .nav-item.active::after
-  //    underline flip light together. Harmless in the azure/gray sidebar family (no
-  //    #menu strip).
+  // 3. Top-nav menu strip (#menu > .nav-tile) — in the black theme the stock strip stays
+  //    light (#f2f2f2) with dark labels and a dark active-tab underline (both read
+  //    var(--header-text-color)). It mounts OUTSIDE #header, so darken the strip and
+  //    re-scope that token here so the labels AND the .nav-item.active::after underline
+  //    flip light together. Harmless in the gray sidebar family (no #menu strip).
   var DARK_MODE_CSS =
     '#header{' +
       '--header-background-color:var(--mild-background-color);' +
@@ -157,10 +149,26 @@ Icon="adjust"
       '--customer-header-text-color:var(--text-color);' +
       'color:var(--text-color);' +
     '}' +
-    '.unapi{--color-header-text-primary:var(--text-color)!important;}' +
-    '.text-header-text-primary{color:var(--text-color)!important;}' +
     '.logLine,fieldset.CMD,fieldset.CMD>legend,#logBody{color:var(--text-color)!important;}' +
     '#menu,.nav-tile{background:var(--mild-background-color)!important;--header-text-color:var(--text-color)!important;}';
+
+  // Unraid Connect header island (.unapi / UNRAID-USER-PROFILE) — server name, notification
+  // bell, account dropdown/hamburger. Reachable light-DOM (not a closed shadow root), so we
+  // can recolour it; it mounts OUTSIDE #header, so the rules are global and injected in both
+  // modes. We resolve the colour ourselves rather than via var(--header-text-color): Connect
+  // REDEFINES that token inside its own island from its independent (OS-driven) scheme, so
+  // referencing it tracks Connect, not the header backdrop, and the items vanish whenever our
+  // forced mode disagrees with Connect.
+  //
+  // The backdrop behind the island is DARK in every theme except azure, so light text is
+  // right almost everywhere: nav-top (white/black) has a dark header band in both modes, and
+  // in dark mode the #header darkening above darkens the gray sidebar backdrop too. Only
+  // azure (sidebar + light mode) keeps a light backdrop and needs dark text.
+  function islandCss(theme) {
+    var color = (theme === 'azure') ? '#1d1b1b' : '#f2f2f2';
+    return '.unapi{--color-header-text-primary:' + color + '!important;}' +
+      '.text-header-text-primary{color:' + color + '!important;}';
+  }
 
   // Our own <style> element, created once, toggled by content.
   function darkModeStyle() {
@@ -173,8 +181,8 @@ Icon="adjust"
     return el;
   }
 
-  // Apply a theme: repoint the <link>, swap the <html> colour class, and force a
-  // dark header when the effective theme is dark (cleared in light -> native header).
+  // Apply a theme: repoint the <link>, swap the <html> colour class, force a dark header
+  // when the effective theme is dark, and always keep the Connect island legible.
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
@@ -189,7 +197,7 @@ Icon="adjust"
     html.classList.add('Theme--' + theme);
 
     var isDark = (theme === 'black' || theme === 'gray');
-    darkModeStyle().textContent = isDark ? DARK_MODE_CSS : '';
+    darkModeStyle().textContent = islandCss(theme) + (isDark ? DARK_MODE_CSS : '');
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
