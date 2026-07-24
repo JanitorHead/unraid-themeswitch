@@ -35,20 +35,22 @@
     return document.querySelector('link[rel~="stylesheet"][href*="/styles/themes/"]');
   }
 
-  // Community Applications (the Apps tab) ships its OWN per-theme stylesheet, emitted
-  // server-side for the theme active at render, under a different path than themeLink()
-  // catches. If we don't repoint it too, its APPS grid keeps the pre-toggle theme's text
-  // colour — dark labels on our dark page, i.e. invisible cards. Only present on that tab.
-  function caThemeLink() {
-    return document.querySelector('link[rel~="stylesheet"][href*="/community.applications/"][href*="/themes/"]');
-  }
+  // Unraid's core theme is one <link>, but several plugins ship their OWN per-theme
+  // stylesheet, emitted server-side for the theme active at render, so client-side
+  // toggling leaves them on the pre-toggle theme (Community Applications' Apps grid,
+  // Unassigned Devices' + Docker manager's tables, ...). The token appears in two link
+  // conventions: `.../themes/<theme>.css` (core webGUI, Community Applications) and
+  // `.../style-<theme>.css` (dynamix.docker.manager, Unassigned Devices). Match either
+  // so we repoint EVERY per-theme stylesheet, not just Unraid's own chrome.
+  var THEME_TOKEN = /(\/(?:themes\/|style-))(white|azure|black|gray)\.css/;
 
-  // Repoint a theme <link> to the resolved theme, preserving its ?v= cache-buster (an
-  // opaque key, harmless) which self-heals on the next full page load. No-op if absent.
+  // Repoint one stylesheet <link> to the resolved theme, preserving the token flavour
+  // (themes/ vs style-) and its ?v= cache-buster (an opaque key, harmless; self-heals on
+  // the next full page load). No-op on absent links or hrefs without a theme token.
   function swapThemeHref(link, theme) {
     if (!link) return;
     var href = link.getAttribute('href');
-    var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
+    var next = href.replace(THEME_TOKEN, '$1' + theme + '.css');
     if (next !== href) link.setAttribute('href', next);
   }
 
@@ -138,10 +140,11 @@
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
-    // Repoint the main theme <link>, and the Community Applications theme <link> when
-    // present, so the Apps grid tracks the toggle instead of keeping its render-time theme.
-    swapThemeHref(link, theme);
-    swapThemeHref(caThemeLink(), theme);
+    // Repoint every per-theme stylesheet on the page (core theme + any plugin that ships
+    // its own, matched by THEME_TOKEN) so the whole page tracks the toggle, not just
+    // Unraid's chrome. Cheap: a scoped querySelectorAll + a no-op regex on non-theme links.
+    var links = document.querySelectorAll('link[rel~="stylesheet"]');
+    for (var i = 0; i < links.length; i++) swapThemeHref(links[i], theme);
 
     var html = document.documentElement;
     THEMES.forEach(function (t) { html.classList.remove('Theme--' + t); });

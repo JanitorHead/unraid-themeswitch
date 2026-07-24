@@ -76,6 +76,17 @@ emit_file() {
     ?>]]></INLINE>
   </FILE>
 
+  <!-- Unraid's plugin-manager SKIPS an inline <FILE Name> whose target already exists,
+       so on UPDATE it keeps the stale web files (never rewrites our .js/.page/.md). Wipe
+       the staging dir first; the <FILE Name> blocks below then always write fresh copies.
+       Safe: only our own text web files live here (binaries are never embedded). -->
+  <FILE Run="/bin/bash">
+    <INLINE>
+      rm -rf &emhttp;
+      mkdir -p &emhttp;
+    </INLINE>
+  </FILE>
+
 XML
 
   # Embed every staged TEXT web file (skip binaries on purpose).
