@@ -27,7 +27,10 @@ deriving the light/dark pair from whichever theme the server is set to:
 It stays within a layout family, so toggling only changes colours — never the page layout. Your
 chosen mode is stored in `localStorage` (per browser) and synced across open tabs. In dark mode
 it also forces the header bar dark and keeps command-execution output (e.g. `docker run`)
-readable, which Unraid's stock dark themes don't fully cover.
+readable, which Unraid's stock dark themes don't fully cover. The **Community Applications** (Apps
+tab) plugin ships its own per-theme stylesheet, rendered for the server's theme; Theme Switch
+repoints that one too, so the Apps grid follows the toggle instead of leaving dark-on-dark
+(invisible) app cards.
 
 ## Install
 

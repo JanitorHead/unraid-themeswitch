@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name      "themeswitch">
   <!ENTITY author    "JanitorHead">
-  <!ENTITY version   "2026.07.23a">
+  <!ENTITY version   "2026.07.24">
   <!ENTITY github    "JanitorHead/unraid-themeswitch">
   <!ENTITY plugin    "/boot/config/plugins/&name;">
   <!ENTITY emhttp    "/usr/local/emhttp/plugins/&name;">
@@ -18,7 +18,7 @@
         min="6.12.0">
 
   <CHANGES>
-###2026.07.23a
+###2026.07.24
 - One-click light/dark theme toggle (sun/moon) in the Unraid header toolbar.
 - Three modes: Auto (follows your OS colour scheme live), Light, Dark.
 - Instant client-side switch: no page reload, no server settings changed, per browser.
@@ -98,6 +98,23 @@ Icon="adjust"
     // Constrain to the active stylesheet so a future preload/icon link to the same
     // path can't be picked up instead of the real theme <link>.
     return document.querySelector('link[rel~="stylesheet"][href*="/styles/themes/"]');
+  }
+
+  // Community Applications (the Apps tab) ships its OWN per-theme stylesheet, emitted
+  // server-side for the theme active at render, under a different path than themeLink()
+  // catches. If we don't repoint it too, its APPS grid keeps the pre-toggle theme's text
+  // colour — dark labels on our dark page, i.e. invisible cards. Only present on that tab.
+  function caThemeLink() {
+    return document.querySelector('link[rel~="stylesheet"][href*="/community.applications/"][href*="/themes/"]');
+  }
+
+  // Repoint a theme <link> to the resolved theme, preserving its ?v= cache-buster (an
+  // opaque key, harmless) which self-heals on the next full page load. No-op if absent.
+  function swapThemeHref(link, theme) {
+    if (!link) return;
+    var href = link.getAttribute('href');
+    var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
+    if (next !== href) link.setAttribute('href', next);
   }
 
   // Parse the active theme name (white|azure|black|gray) from the <link href>,
@@ -186,11 +203,10 @@ Icon="adjust"
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
-    var href = link.getAttribute('href');
-    // Swap only the theme token; the original ?v=<mtime> cache-buster is reused (an
-    // opaque key, harmless) and self-heals on the next full page load.
-    var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
-    if (next !== href) link.setAttribute('href', next);
+    // Repoint the main theme <link>, and the Community Applications theme <link> when
+    // present, so the Apps grid tracks the toggle instead of keeping its render-time theme.
+    swapThemeHref(link, theme);
+    swapThemeHref(caThemeLink(), theme);
 
     var html = document.documentElement;
     THEMES.forEach(function (t) { html.classList.remove('Theme--' + t); });

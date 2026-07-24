@@ -35,6 +35,23 @@
     return document.querySelector('link[rel~="stylesheet"][href*="/styles/themes/"]');
   }
 
+  // Community Applications (the Apps tab) ships its OWN per-theme stylesheet, emitted
+  // server-side for the theme active at render, under a different path than themeLink()
+  // catches. If we don't repoint it too, its APPS grid keeps the pre-toggle theme's text
+  // colour — dark labels on our dark page, i.e. invisible cards. Only present on that tab.
+  function caThemeLink() {
+    return document.querySelector('link[rel~="stylesheet"][href*="/community.applications/"][href*="/themes/"]');
+  }
+
+  // Repoint a theme <link> to the resolved theme, preserving its ?v= cache-buster (an
+  // opaque key, harmless) which self-heals on the next full page load. No-op if absent.
+  function swapThemeHref(link, theme) {
+    if (!link) return;
+    var href = link.getAttribute('href');
+    var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
+    if (next !== href) link.setAttribute('href', next);
+  }
+
   // Parse the active theme name (white|azure|black|gray) from the <link href>,
   // or null if this Unraid version uses a layout we do not recognise.
   function currentTheme(link) {
@@ -121,11 +138,10 @@
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
-    var href = link.getAttribute('href');
-    // Swap only the theme token; the original ?v=<mtime> cache-buster is reused (an
-    // opaque key, harmless) and self-heals on the next full page load.
-    var next = href.replace(/themes\/(white|azure|black|gray)\.css/, 'themes/' + theme + '.css');
-    if (next !== href) link.setAttribute('href', next);
+    // Repoint the main theme <link>, and the Community Applications theme <link> when
+    // present, so the Apps grid tracks the toggle instead of keeping its render-time theme.
+    swapThemeHref(link, theme);
+    swapThemeHref(caThemeLink(), theme);
 
     var html = document.documentElement;
     THEMES.forEach(function (t) { html.classList.remove('Theme--' + t); });
