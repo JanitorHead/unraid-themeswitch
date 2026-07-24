@@ -45,12 +45,13 @@ Then hard-refresh the browser (Ctrl+Shift+R) once so the global script loads.
 - **Older Unraid** — installs without error; if the theme layout isn't recognised the button
   simply does nothing, so it can't break the page.
 
-## Known limitation
+## Unraid Connect header
 
-In dark mode, a few **Unraid Connect** header elements — the server name, the notification bell
-and the account dropdown/hamburger — stay dark. Those are rendered inside a closed shadow-DOM
-web component that no external CSS or JavaScript can recolour. Everything else (the header
-background, menus, dialogs and command output) is themed correctly.
+The server name, notification bell and account dropdown/hamburger live in the **Unraid Connect**
+header island, which tracks its own light/dark scheme independently of the theme. When a forced
+theme disagrees with that scheme those items can end up the wrong colour and disappear against the
+header band. Theme Switch recolours the island to contrast the band in every theme and mode, so
+they stay legible.
 
 ## Building
 
