@@ -59,11 +59,16 @@ emit_file() {
         min="$MIN">
 
   <CHANGES>
-###$VER
-- One-click light/dark theme toggle (sun/moon) in the Unraid header toolbar.
-- Three modes: Auto (follows your OS colour scheme live), Light, Dark.
-- Instant client-side switch: no page reload, no server settings changed, per browser.
-- Forces a fully dark header and keeps command-execution output readable in dark mode.
+XML
+  # Update notes come straight from CHANGELOG.md (single source of truth). Embedded
+  # verbatim, so keep that file free of raw <, > and & (they'd break the .plg XML).
+  if [ -f "$ROOT/CHANGELOG.md" ]; then
+    cat "$ROOT/CHANGELOG.md"
+  else
+    echo "###$VER"
+    echo "- See https://github.com/$GITHUB/commits/master"
+  fi
+  cat <<XML
   </CHANGES>
 
   <FILE Run="/usr/bin/php">
