@@ -124,6 +124,76 @@
       '.text-header-text-primary{color:' + color + '!important;}';
   }
 
+  // Unraid Connect's web components (notifications panel + toasts, modals; plugin
+  // dynamix.unraid.net) decide light/dark from the SERVER-rendered theme, not from
+  // the page: web-components-extractor.php prints :root{--theme-dark-mode:0|1;
+  // --theme-name:<theme>} and each component wrapper checks the COMPUTED
+  // --theme-dark-mode when it mounts (falling back to looking for `dark` classes).
+  // We swap themes client-side, so that var goes stale and e.g. the notifications
+  // panel renders light-on-dark (GitHub issue #3). Re-declare it for the EFFECTIVE
+  // theme, !important so it also outranks the inline --theme-dark-mode Connect
+  // writes onto <html> during its own init. Emitted in BOTH modes: components that
+  // mount later then colour themselves correctly with no help from us.
+  //
+  // Deliberately NOT overridden: --theme-name. Connect seeds its theme store from
+  // it, but then refetches the theme from the server; the answer (the real server
+  // theme) would differ, and that store transition strips every `dark` class our
+  // value had just caused. Leaving --theme-name alone keeps the store stable so
+  // nothing reverts; the dark styling itself only needs --theme-dark-mode plus the
+  // wrapper classes syncConnect maintains.
+  function themeVarsCss(isDark) {
+    return ':root{--theme-dark-mode:' + (isDark ? '1' : '0') + ' !important;}';
+  }
+
+  // Components already mounted captured light/dark at mount time in the DOM: a
+  // `dark` class on <html>/<body>/every .unapi wrapper, plus "light"/"dark" theme
+  // attributes on the vue-sonner toaster. Mirror exactly what Connect's own theme
+  // watcher does when the server theme changes, so a runtime toggle restyles them
+  // without a page reload. Steady-state this is mutation-free (adding a class that
+  // is present / removing one that is absent records nothing; attributes are only
+  // written on a real mismatch), which lets the MutationObserver below re-run it
+  // without feeding itself.
+  var connectDark = false; // effective mode, read by the observer callback
+  function syncConnect(isDark) {
+    connectDark = isDark;
+    var op = isDark ? 'add' : 'remove';
+    var i, els;
+    document.documentElement.classList[op]('dark');
+    if (document.body) document.body.classList[op]('dark');
+    els = document.querySelectorAll('.unapi');
+    for (i = 0; i < els.length; i++) els[i].classList[op]('dark');
+    var from = isDark ? 'light' : 'dark';
+    var to = isDark ? 'dark' : 'light';
+    ['data-theme', 'data-sonner-theme'].forEach(function (attr) {
+      var sel = document.querySelectorAll('.unapi [' + attr + '="' + from + '"]');
+      for (var j = 0; j < sel.length; j++) sel[j].setAttribute(attr, to);
+    });
+  }
+
+  // Connect keeps (re)mounting pieces asynchronously after DOMContentLoaded — the
+  // Teleport/modals container rewrites its own class list, the sonner toaster <ol>
+  // appears with a store-derived light/dark, lazy chunks mount whole islands. Each
+  // of those would pop up in the server theme's colours, so watch the DOM and
+  // re-assert. rAF-coalesced: at most one cheap sync per frame regardless of how
+  // noisy the page is (dashboards mutate constantly).
+  function watchConnect() {
+    if (!window.MutationObserver || !document.body) return;
+    var scheduled = false;
+    new MutationObserver(function () {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(function () {
+        scheduled = false;
+        syncConnect(connectDark);
+      });
+    }).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'data-theme', 'data-sonner-theme']
+    });
+  }
+
   // Our own <style> element, created once, toggled by content.
   function darkModeStyle() {
     var el = document.getElementById('themeswitch-style');
@@ -135,8 +205,10 @@
     return el;
   }
 
-  // Apply a theme: repoint the <link>, swap the <html> colour class, force a dark header
-  // when the effective theme is dark, and always keep the Connect island legible.
+  // Apply a theme: repoint every per-theme <link>, swap the <html> colour class,
+  // re-declare the Connect theme var, force a dark header when the effective theme
+  // is dark, and always keep the Connect island legible. syncConnect retunes
+  // already-mounted Connect components (notifications, toasts) to the new mode.
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
@@ -151,7 +223,8 @@
     html.classList.add('Theme--' + theme);
 
     var isDark = (theme === 'black' || theme === 'gray');
-    darkModeStyle().textContent = islandCss(theme) + (isDark ? DARK_MODE_CSS : '');
+    darkModeStyle().textContent = themeVarsCss(isDark) + islandCss(theme) + (isDark ? DARK_MODE_CSS : '');
+    syncConnect(isDark);
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
@@ -207,10 +280,14 @@
   });
 
   // The toolbar button lives in <body>. Once the DOM is ready, re-apply (covers the
-  // case where the theme <link> wasn't parsed yet at head time) and initialise the
-  // button; updateButton only runs when the layout was recognised.
+  // case where the theme <link> wasn't parsed yet at head time), initialise the
+  // button, and start watching Connect's late mounts; updateButton and the watcher
+  // only run when the layout was recognised.
   function initButton() {
-    if (refresh()) updateButton(getMode());
+    if (refresh()) {
+      updateButton(getMode());
+      watchConnect();
+    }
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initButton);

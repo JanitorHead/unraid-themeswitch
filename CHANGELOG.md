@@ -4,6 +4,14 @@ Newest first. This file is the single source of truth for the plugin's update
 notes: `build/make-standalone-plg.sh` embeds it verbatim into the `.plg`'s
 `CHANGES` block, so what you read here is what Unraid shows on update.
 
+###2026.07.29
+- Sync Unraid Connect components with the toggle (issue 3). The notifications
+  panel, toasts and modals decide light/dark from the SERVER-rendered theme, so
+  they ignored the client-side switch and rendered unreadable (light-on-dark or
+  dark-on-light). Theme Switch now re-declares the CSS variable they read when
+  they mount and keeps their dark wrapper classes and toaster theme attributes
+  in sync, reload-free, with a lightweight observer catching late mounts.
+
 ###2026.07.24c
 - Docs: add this changelog; the plugin's update notes are now the real
   per-version history instead of a fixed blurb.

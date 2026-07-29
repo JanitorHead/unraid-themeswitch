@@ -33,6 +33,12 @@ Apps grid), Unassigned Devices and the Docker manager (their tables). Theme Swit
 too, so the whole page follows the toggle instead of leaving mismatched light-on-dark (or
 dark-on-dark) patches like invisible app cards or stray white table rows.
 
+**Unraid Connect** components (the notifications panel and toasts, modals) decide light/dark from
+the *server*-rendered theme, so on their own they would ignore the client-side switch. Theme
+Switch re-declares the `--theme-dark-mode` variable they read at mount and keeps their `dark`
+wrapper classes and toaster theme attributes in sync (a lightweight, frame-coalesced observer
+catches late-mounting pieces), so they follow the toggle too.
+
 ## Install
 
 Unraid → **Plugins → Install Plugin** → paste:
