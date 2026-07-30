@@ -182,25 +182,33 @@
   var connectTokens = null;
   function probeConnectTokens() {
     if (connectTokens || !document.body) return connectTokens;
-    var probes = [document.createElement('div'), document.createElement('div')];
-    probes[0].className = 'unapi';
-    probes[1].className = 'unapi dark';
-    probes.forEach(function (p) {
-      // Out of flow and zero-sized: never paints, never affects layout.
-      p.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:0;height:0';
-      document.body.appendChild(p);
-    });
-    var csLight = getComputedStyle(probes[0]);
-    var csDark = getComputedStyle(probes[1]);
-    var light = {}, dark = {};
-    CONNECT_TOKENS.forEach(function (name) {
-      var l = csLight.getPropertyValue(name).trim();
-      var d = csDark.getPropertyValue(name).trim();
-      // Both probes carry the .unapi rules themselves, so these values come from
-      // Connect's declarations and not from whatever the page currently inherits.
-      if (l && d && l !== d) { light[name] = l; dark[name] = d; }
-    });
-    probes.forEach(function (p) { p.parentNode.removeChild(p); });
+    var light = {}, dark = {}, found = 0;
+    try {
+      var probes = [document.createElement('div'), document.createElement('div')];
+      probes[0].className = 'unapi';
+      probes[1].className = 'unapi dark';
+      probes.forEach(function (p) {
+        // Out of flow and zero-sized: never paints, never affects layout.
+        p.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:0;height:0';
+        document.body.appendChild(p);
+      });
+      var csLight = getComputedStyle(probes[0]);
+      var csDark = getComputedStyle(probes[1]);
+      CONNECT_TOKENS.forEach(function (name) {
+        var l = csLight.getPropertyValue(name).trim();
+        var d = csDark.getPropertyValue(name).trim();
+        // Both probes carry the .unapi rules themselves, so these values come from
+        // Connect's declarations and not from whatever the page currently inherits.
+        if (l && d && l !== d) { light[name] = l; dark[name] = d; found++; }
+      });
+      probes.forEach(function (p) { p.parentNode.removeChild(p); });
+    } catch (e) {
+      return null; // never let colour work break the rest of the switch
+    }
+    // Connect's stylesheet is pulled in by its own bundle and can still be in
+    // flight: the probes then see no .unapi rules and every token looks identical.
+    // Do NOT cache that answer — a later pass retries until the rules are there.
+    if (!found) return null;
     connectTokens = { light: light, dark: dark };
     return connectTokens;
   }
@@ -251,10 +259,17 @@
   // re-assert. Coalesced to one cheap sync per frame regardless of how noisy the
   // page is (dashboards mutate constantly); a timer stands in for the frame callback
   // while the tab is hidden, where requestAnimationFrame never fires.
+  //
+  // The same tick retries the token probe while it is still unresolved, which is how
+  // we recover when Connect's stylesheet lands after our first pass.
   function watchConnect() {
     if (!window.MutationObserver || !document.body) return;
     var scheduled = false;
-    var run = function () { scheduled = false; syncConnect(connectDark); };
+    var run = function () {
+      scheduled = false;
+      syncConnect(connectDark);
+      if (!connectTokens) writeStyle();
+    };
     new MutationObserver(function () {
       if (scheduled) return;
       scheduled = true;
@@ -268,6 +283,15 @@
     });
   }
 
+  // A quiet page produces no mutations, so the observer alone could sit on an
+  // unresolved probe forever. Retry on load and on a short backoff, stopping as soon
+  // as the tokens resolve (or the page turns out not to run Connect at all).
+  function retryTokens() {
+    [0, 500, 1500, 4000].forEach(function (ms) {
+      setTimeout(function () { if (!connectTokens) writeStyle(); }, ms);
+    });
+  }
+
   // Our own <style> element, created once, toggled by content.
   function darkModeStyle() {
     var el = document.getElementById('themeswitch-style');
@@ -277,6 +301,16 @@
       (document.head || document.documentElement).appendChild(el);
     }
     return el;
+  }
+
+  // Rewrite our <style> for the theme applied last. Split out of applyTheme so the
+  // retry paths can re-emit it once the token probe finally resolves.
+  var appliedTheme = null;
+  function writeStyle() {
+    if (!appliedTheme) return;
+    var isDark = (appliedTheme === 'black' || appliedTheme === 'gray');
+    darkModeStyle().textContent = themeVarsCss(isDark) + connectTokenCss(isDark) +
+      islandCss(appliedTheme) + (isDark ? DARK_MODE_CSS : '');
   }
 
   // Apply a theme: repoint every per-theme <link>, swap the <html> colour class,
@@ -296,10 +330,10 @@
     THEMES.forEach(function (t) { html.classList.remove('Theme--' + t); });
     html.classList.add('Theme--' + theme);
 
-    var isDark = (theme === 'black' || theme === 'gray');
-    darkModeStyle().textContent = themeVarsCss(isDark) + connectTokenCss(isDark) +
-      islandCss(theme) + (isDark ? DARK_MODE_CSS : '');
-    syncConnect(isDark);
+    appliedTheme = theme;
+    // Classes first: they must land even if the colour probe cannot run yet.
+    syncConnect(theme === 'black' || theme === 'gray');
+    writeStyle();
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
@@ -341,6 +375,25 @@
     updateButton(next);
   };
 
+  // Self-diagnosis for bug reports: `ThemeSwitch.state()` in the browser console
+  // answers, in one line, which build is actually running and whether it got hold of
+  // the page — far more reliable than reading it off screenshots. `undefined` means
+  // this script never loaded (stale plugin, different server, cached page).
+  window.ThemeSwitch.version = '@@VERSION@@';
+  window.ThemeSwitch.state = function () {
+    var wrappers = document.querySelectorAll('.unapi');
+    return {
+      version: window.ThemeSwitch.version,
+      mode: getMode(),
+      theme: appliedTheme,
+      darkModeVar: getComputedStyle(document.documentElement)
+        .getPropertyValue('--theme-dark-mode').trim(),
+      tokens: connectTokens ? Object.keys(connectTokens.dark).length : 0,
+      wrappers: wrappers.length,
+      wrappersDark: document.querySelectorAll('.unapi.dark').length
+    };
+  };
+
   // Live OS scheme changes only matter while following the OS (mode=auto).
   if (window.matchMedia) {
     var mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -362,6 +415,7 @@
     if (refresh()) {
       updateButton(getMode());
       watchConnect();
+      retryTokens();
     }
   }
   if (document.readyState === 'loading') {

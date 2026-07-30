@@ -28,11 +28,13 @@ launch_attr=""
         launch=\"$LAUNCH\""
 
 # text file -> INLINE CDATA <FILE> (binaries are skipped; base64 heredocs break the installer)
+# @@VERSION@@ is substituted with the build version, so the shipped script can report
+# which build is running (ThemeSwitch.state()) without a second place to bump by hand.
 emit_file() {
   local disk="$1" dest="$2"
   printf '  <FILE Name="%s">\n' "$dest"
   printf '    <INLINE><![CDATA[\n'
-  sed 's/\r$//' "$disk"
+  sed -e 's/\r$//' -e "s/@@VERSION@@/$VER/g" "$disk"
   printf ']]></INLINE>\n'
   printf '  </FILE>\n\n'
 }

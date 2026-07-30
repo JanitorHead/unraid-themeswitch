@@ -4,6 +4,17 @@ Newest first. This file is the single source of truth for the plugin's update
 notes: `build/make-standalone-plg.sh` embeds it verbatim into the `.plg`'s
 `CHANGES` block, so what you read here is what Unraid shows on update.
 
+###2026.07.30b
+- Add `ThemeSwitch.state()`: typing that in the browser console reports which build
+  is actually running and whether it got hold of the page (theme, mode, how many
+  Connect wrappers it sees, how many colour tokens it resolved). `undefined` means
+  the plugin's script never loaded on that page — the fastest way to tell a real
+  styling bug apart from a stale page, a plugin that did not update, or a different
+  server. The version is stamped in at build time, so it cannot drift.
+- Hardening around the colour work: the dark-class sync now runs before it and can
+  no longer be held up by it, the token probe never throws, and if it cannot read
+  Connect's stylesheet yet it retries instead of caching an empty answer.
+
 ###2026.07.30
 - Finish the Unraid Connect fix (issue 3). Syncing the dark classes was not enough:
   Connect resets a whole colour-token set on EVERY one of its .unapi wrappers, so a
