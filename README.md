@@ -35,9 +35,12 @@ dark-on-dark) patches like invisible app cards or stray white table rows.
 
 **Unraid Connect** components (the notifications panel and toasts, modals) decide light/dark from
 the *server*-rendered theme, so on their own they would ignore the client-side switch. Theme
-Switch re-declares the `--theme-dark-mode` variable they read at mount and keeps their `dark`
-wrapper classes and toaster theme attributes in sync (a lightweight, frame-coalesced observer
-catches late-mounting pieces), so they follow the toggle too.
+Switch re-declares the `--theme-dark-mode` variable they read at mount, and re-declares the colour
+token set Connect resets on each of its `.unapi` wrappers — so their colours follow the toggle even
+if a wrapper never gets its `dark` class, which otherwise paints the panel white under light text.
+Those token values are read back from Connect's own stylesheet rather than hard-coded, so a palette
+change on their side follows through. The `dark` classes and the toaster's theme attribute are kept
+in sync too (a lightweight, frame-coalesced observer catches late-mounting pieces).
 
 ## Install
 

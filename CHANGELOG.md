@@ -4,6 +4,18 @@ Newest first. This file is the single source of truth for the plugin's update
 notes: `build/make-standalone-plg.sh` embeds it verbatim into the `.plg`'s
 `CHANGES` block, so what you read here is what Unraid shows on update.
 
+###2026.07.30
+- Finish the Unraid Connect fix (issue 3). Syncing the dark classes was not enough:
+  Connect resets a whole colour-token set on EVERY one of its .unapi wrappers, so a
+  single wrapper left without the class re-lights the background for everything
+  inside it while the text kept the dark colours — the notifications panel showed a
+  white background under near-invisible light text. The token set is now re-declared
+  for the active mode, so Connect's colours no longer depend on a class landing on
+  every wrapper. The values are read back from Connect's own stylesheet instead of
+  hard-coded, so a palette change on their side is picked up automatically.
+- The theme sync also keeps working in a background tab (it no longer waits for a
+  frame callback that never comes while the tab is hidden).
+
 ###2026.07.29
 - Sync Unraid Connect components with the toggle (issue 3). The notifications
   panel, toasts and modals decide light/dark from the SERVER-rendered theme, so
