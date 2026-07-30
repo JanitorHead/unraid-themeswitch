@@ -145,14 +145,88 @@
     return ':root{--theme-dark-mode:' + (isDark ? '1' : '0') + ' !important;}';
   }
 
+  // Connect's own stylesheet resets a whole token set on EVERY .unapi wrapper:
+  //   .unapi     {--background:0 0% 100%; --foreground:0 0% 3.9%; --ui-bg:white; ...}
+  //   .unapi.dark{--background:0 0% 3.9%; --foreground:0 0% 98%;  --ui-bg:#171717; ...}
+  // So a single wrapper left WITHOUT `dark` re-lights those tokens for its entire
+  // subtree, while tokens it does not define (the --color-* family) keep inheriting
+  // the dark values from <html> — the panel then paints a WHITE background under
+  // LIGHT text, unreadable (issue #3, second round). Wrapper classes alone are a
+  // fragile contract: Connect rewrites class lists on its Teleport containers and
+  // mounts islands whenever it likes.
+  //
+  // So don't rely on the classes for colour: re-declare the token set itself on
+  // .unapi (!important, which outranks the more specific .unapi.dark), making every
+  // wrapper resolve to the effective mode whether or not its class landed.
+  //
+  // The VALUES are never hard-coded — they are read back from Connect's own CSS via
+  // two throwaway probe elements, so a palette change on their side follows through
+  // instead of leaving us forcing stale colours. Tokens that are missing, or that
+  // resolve identically in both modes, are skipped: the list below is a tolerant
+  // hint, not a contract we depend on.
+  var CONNECT_TOKENS = [
+    '--ui-primary', '--ui-secondary', '--ui-text-dimmed', '--ui-text-muted',
+    '--ui-text-toned', '--ui-text', '--ui-text-highlighted', '--ui-text-inverted',
+    '--ui-bg', '--ui-bg-muted', '--ui-bg-elevated', '--ui-bg-accented',
+    '--ui-bg-inverted', '--ui-border', '--ui-border-muted', '--ui-border-accented',
+    '--ui-border-inverted', '--background', '--foreground', '--muted',
+    '--muted-foreground', '--popover', '--popover-foreground', '--card',
+    '--card-foreground', '--border', '--input', '--secondary',
+    '--secondary-foreground', '--accent', '--accent-foreground', '--destructive',
+    '--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5'
+  ];
+
+  // { light: {token: value}, dark: {...} }, probed once per page load (the values are
+  // static for a given Connect build). null until <body> exists — the head-time pass
+  // simply omits this block and the DOM-ready pass fills it in.
+  var connectTokens = null;
+  function probeConnectTokens() {
+    if (connectTokens || !document.body) return connectTokens;
+    var probes = [document.createElement('div'), document.createElement('div')];
+    probes[0].className = 'unapi';
+    probes[1].className = 'unapi dark';
+    probes.forEach(function (p) {
+      // Out of flow and zero-sized: never paints, never affects layout.
+      p.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:0;height:0';
+      document.body.appendChild(p);
+    });
+    var csLight = getComputedStyle(probes[0]);
+    var csDark = getComputedStyle(probes[1]);
+    var light = {}, dark = {};
+    CONNECT_TOKENS.forEach(function (name) {
+      var l = csLight.getPropertyValue(name).trim();
+      var d = csDark.getPropertyValue(name).trim();
+      // Both probes carry the .unapi rules themselves, so these values come from
+      // Connect's declarations and not from whatever the page currently inherits.
+      if (l && d && l !== d) { light[name] = l; dark[name] = d; }
+    });
+    probes.forEach(function (p) { p.parentNode.removeChild(p); });
+    connectTokens = { light: light, dark: dark };
+    return connectTokens;
+  }
+
+  function connectTokenCss(isDark) {
+    var probed = probeConnectTokens();
+    if (!probed) return '';
+    var map = isDark ? probed.dark : probed.light;
+    var css = '';
+    for (var name in map) css += name + ':' + map[name] + '!important;';
+    return css ? '.unapi{' + css + '}' : '';
+  }
+
   // Components already mounted captured light/dark at mount time in the DOM: a
   // `dark` class on <html>/<body>/every .unapi wrapper, plus "light"/"dark" theme
   // attributes on the vue-sonner toaster. Mirror exactly what Connect's own theme
   // watcher does when the server theme changes, so a runtime toggle restyles them
-  // without a page reload. Steady-state this is mutation-free (adding a class that
-  // is present / removing one that is absent records nothing; attributes are only
-  // written on a real mismatch), which lets the MutationObserver below re-run it
-  // without feeding itself.
+  // without a page reload. The token block above already makes the COLOURS correct
+  // whether or not these classes land; this additionally drives what the classes
+  // alone can do — Tailwind's class-based `dark:` utility variants inside the
+  // components, and the toaster's own light/dark attribute.
+  //
+  // Steady-state this is mutation-free (adding a class that is present / removing
+  // one that is absent records nothing; attributes are only written on a real
+  // mismatch), which lets the MutationObserver below re-run it without feeding
+  // itself.
   var connectDark = false; // effective mode, read by the observer callback
   function syncConnect(isDark) {
     connectDark = isDark;
@@ -174,18 +248,18 @@
   // Teleport/modals container rewrites its own class list, the sonner toaster <ol>
   // appears with a store-derived light/dark, lazy chunks mount whole islands. Each
   // of those would pop up in the server theme's colours, so watch the DOM and
-  // re-assert. rAF-coalesced: at most one cheap sync per frame regardless of how
-  // noisy the page is (dashboards mutate constantly).
+  // re-assert. Coalesced to one cheap sync per frame regardless of how noisy the
+  // page is (dashboards mutate constantly); a timer stands in for the frame callback
+  // while the tab is hidden, where requestAnimationFrame never fires.
   function watchConnect() {
     if (!window.MutationObserver || !document.body) return;
     var scheduled = false;
+    var run = function () { scheduled = false; syncConnect(connectDark); };
     new MutationObserver(function () {
       if (scheduled) return;
       scheduled = true;
-      requestAnimationFrame(function () {
-        scheduled = false;
-        syncConnect(connectDark);
-      });
+      if (document.hidden || !window.requestAnimationFrame) setTimeout(run, 100);
+      else requestAnimationFrame(run);
     }).observe(document.body, {
       childList: true,
       subtree: true,
@@ -206,9 +280,9 @@
   }
 
   // Apply a theme: repoint every per-theme <link>, swap the <html> colour class,
-  // re-declare the Connect theme var, force a dark header when the effective theme
-  // is dark, and always keep the Connect island legible. syncConnect retunes
-  // already-mounted Connect components (notifications, toasts) to the new mode.
+  // re-declare the Connect theme var and token set, force a dark header when the
+  // effective theme is dark, and always keep the Connect island legible. syncConnect
+  // retunes already-mounted Connect components (notifications, toasts) to the mode.
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
@@ -223,7 +297,8 @@
     html.classList.add('Theme--' + theme);
 
     var isDark = (theme === 'black' || theme === 'gray');
-    darkModeStyle().textContent = themeVarsCss(isDark) + islandCss(theme) + (isDark ? DARK_MODE_CSS : '');
+    darkModeStyle().textContent = themeVarsCss(isDark) + connectTokenCss(isDark) +
+      islandCss(theme) + (isDark ? DARK_MODE_CSS : '');
     syncConnect(isDark);
   }
 
