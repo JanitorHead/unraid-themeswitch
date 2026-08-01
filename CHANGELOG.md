@@ -4,6 +4,17 @@ Newest first. This file is the single source of truth for the plugin's update
 notes: `build/make-standalone-plg.sh` embeds it verbatim into the `.plg`'s
 `CHANGES` block, so what you read here is what Unraid shows on update.
 
+###2026.08.01
+- **Fix updates not actually replacing the plugin's files.** Unraid's plugin manager
+  skips an inline file whose target already exists, so the plugin wipes its own web
+  directory first — but that step was accidentally dropped from the packaging script
+  on 2026.07.29. Every release since then bumped the version shown on the Plugins
+  page while leaving the OLD script on disk, so the Unraid Connect fixes in
+  2026.07.29, 2026.07.30 and 2026.07.30b never reached anyone who updated. Updating
+  to this build replaces the files for real.
+- The update notes shown by Unraid come from CHANGELOG.md again (same regression:
+  releases since 2026.07.29 showed a fixed blurb instead of the real history).
+
 ###2026.07.30b
 - Add `ThemeSwitch.state()`: typing that in the browser console reports which build
   is actually running and whether it got hold of the page (theme, mode, how many
