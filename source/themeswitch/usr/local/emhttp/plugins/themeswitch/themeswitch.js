@@ -292,6 +292,74 @@
     });
   }
 
+  // The dashboard's CPU and network graphs are SmoothieChart <canvas> elements, and the
+  // usage rings next to them are conic-gradients built in JS. Neither is reachable from a
+  // stylesheet: dynamix's DashStats.page picks their colours server-side (a
+  // `switch ($themeHelper->getThemeName())` over four literal palettes) and bakes them into
+  // the chart options / a global `colors` array. A client-side toggle therefore leaves the
+  // axis labels in the pre-toggle colour — near-black text on a near-black canvas, i.e.
+  // invisible (GitHub issue #4) — with grid lines at the wrong contrast and light-theme
+  // rings on the dark page.
+  //
+  // So mirror that palette. Copied rather than derived: only `label` has a CSS-variable
+  // equivalent (--text-color); `grid` and the ring pair exist nowhere but in that PHP
+  // switch. An unrecognised theme has no entry and simply leaves the dashboard alone.
+  var CHART_COLORS = {
+    white: { label: '#1c1b1b', grid: '#e3e3e3', ring: ['#a8a8a8', '#dcdcdc'] },
+    black: { label: '#f2f2f2', grid: '#2b2b2b', ring: ['#787878', '#444444'] },
+    azure: { label: '#606e7f', grid: '#f3f0f4', ring: ['#606e7f', '#eceaec'] },
+    gray:  { label: '#606e7f', grid: '#0c0f0b', ring: ['#606e7f', '#232523'] }
+  };
+
+  // True while `value` is one of the stock palette's values for `key`. Used to recognise
+  // Unraid's own charts before recolouring them, so a plugin that ships a SmoothieChart in
+  // its own colours keeps them. Stays true after we write our value, so the check is
+  // idempotent rather than one-shot.
+  function isStockColor(key, value) {
+    for (var t in CHART_COLORS) if (CHART_COLORS[t][key] === value) return true;
+    return false;
+  }
+
+  // Smoothie re-reads chart.options on every frame it draws, so retinting the options
+  // object is enough — no redraw call, and no dependency on DashStats' own `cpuchart` /
+  // `netchart` variable names. Patching the prototype once covers charts that mount later
+  // and re-applies itself after each toggle, since the frame loop keeps running.
+  var chartsHooked = false;
+  function hookCharts() {
+    var proto = window.SmoothieChart && window.SmoothieChart.prototype;
+    if (chartsHooked || !proto || typeof proto.render !== 'function') return;
+    chartsHooked = true;
+    var render = proto.render;
+    proto.render = function () {
+      var palette = CHART_COLORS[appliedTheme], options = this.options;
+      if (palette && options) {
+        if (options.labels && isStockColor('label', options.labels.fillStyle)) {
+          options.labels.fillStyle = palette.label;
+        }
+        if (options.grid && isStockColor('grid', options.grid.strokeStyle)) {
+          options.grid.strokeStyle = palette.grid;
+        }
+      }
+      return render.apply(this, arguments);
+    };
+  }
+
+  // The usage rings (memory, boot device, ...) read the first two entries of DashStats'
+  // global `colors` on every poll, so rewriting them in place is picked up within a second.
+  // Only touch the array when that leading pair still matches some stock theme's — that is
+  // what identifies it as DashStats' array and not an unrelated global of the same name.
+  function tintRings() {
+    var palette = CHART_COLORS[appliedTheme], colors = window.colors;
+    if (!palette || !colors || typeof colors.length !== 'number') return;
+    for (var t in CHART_COLORS) {
+      if (colors[0] === CHART_COLORS[t].ring[0] && colors[1] === CHART_COLORS[t].ring[1]) {
+        colors[0] = palette.ring[0];
+        colors[1] = palette.ring[1];
+        return;
+      }
+    }
+  }
+
   // Our own <style> element, created once, toggled by content.
   function darkModeStyle() {
     var el = document.getElementById('themeswitch-style');
@@ -316,7 +384,9 @@
   // Apply a theme: repoint every per-theme <link>, swap the <html> colour class,
   // re-declare the Connect theme var and token set, force a dark header when the
   // effective theme is dark, and always keep the Connect island legible. syncConnect
-  // retunes already-mounted Connect components (notifications, toasts) to the mode.
+  // retunes already-mounted Connect components (notifications, toasts) to the mode, and
+  // the chart hook plus tintRings do the same for the dashboard's canvas graphs and
+  // usage rings, whose colours no stylesheet can reach.
   function applyTheme(theme) {
     var link = themeLink();
     if (!link) return;
@@ -334,6 +404,8 @@
     // Classes first: they must land even if the colour probe cannot run yet.
     syncConnect(theme === 'black' || theme === 'gray');
     writeStyle();
+    hookCharts();
+    tintRings();
   }
 
   // Update the toolbar button glyph/label/tooltip to reflect the current mode.
@@ -390,7 +462,8 @@
         .getPropertyValue('--theme-dark-mode').trim(),
       tokens: connectTokens ? Object.keys(connectTokens.dark).length : 0,
       wrappers: wrappers.length,
-      wrappersDark: document.querySelectorAll('.unapi.dark').length
+      wrappersDark: document.querySelectorAll('.unapi.dark').length,
+      charts: chartsHooked
     };
   };
 

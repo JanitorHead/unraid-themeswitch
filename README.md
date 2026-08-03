@@ -42,6 +42,13 @@ Those token values are read back from Connect's own stylesheet rather than hard-
 change on their side follows through. The `dark` classes and the toaster's theme attribute are kept
 in sync too (a lightweight, frame-coalesced observer catches late-mounting pieces).
 
+The **dashboard's CPU and network graphs** are `<canvas>` elements and its usage rings are
+conic-gradients built in JavaScript, so no stylesheet reaches them: Unraid picks their label,
+grid and ring colours server-side and bakes them into the page's own script. Left alone, a
+forced dark page keeps near-black axis labels on a near-black graph. Theme Switch retints them
+to the effective theme's stock palette, so they read the same as if the server had rendered
+that theme.
+
 ## Install
 
 Unraid → **Plugins → Install Plugin** → paste:

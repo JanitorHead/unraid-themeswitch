@@ -4,6 +4,18 @@ Newest first. This file is the single source of truth for the plugin's update
 notes: `build/make-standalone-plg.sh` embeds it verbatim into the `.plg`'s
 `CHANGES` block, so what you read here is what Unraid shows on update.
 
+###2026.08.03
+- **Fix the dashboard's CPU / network graphs in dark mode (issue 4).** Their axis labels
+  stayed near-black on the near-black graph — invisible — because Unraid draws those
+  graphs on a canvas and picks the label and grid colours server-side, where no
+  stylesheet can reach them. They now follow the toggle, along with the dashboard's
+  usage rings (memory, boot device, ...), which were baked in the same way and kept
+  their light-theme greys on the dark page. All of them use Unraid's own stock palette
+  for the effective theme, so the dashboard reads exactly as if the server had rendered
+  it. A graph shipped by another plugin in its own colours is left untouched.
+- `ThemeSwitch.state()` now also reports whether the graph retinting is active
+  (`charts: true` on the Dashboard, `false` on pages without graphs).
+
 ###2026.08.01
 - **Fix updates not actually replacing the plugin's files.** Unraid's plugin manager
   skips an inline file whose target already exists, so the plugin wipes its own web
