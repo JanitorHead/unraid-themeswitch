@@ -4,6 +4,8 @@ A small Unraid plugin that adds a **one-click light/dark switch** to the webGUI 
 **follow your operating system's colour scheme** automatically. Simpler than Dynamix Day/Night —
 no schedules, just a button and your OS.
 
+![The same Unraid Settings page split down the middle: light theme on the left, dark on the right, with the toggle circled in the top toolbar](docs/light-dark.png)
+
 - **Header toggle** — a sun/moon button in the Unraid top toolbar (not a dashboard widget),
   available on every page.
 - **Three modes**, cycled by clicking the button: **Auto → Light → Dark**.
